@@ -2,6 +2,8 @@
 
 Currently, this repo contains python code to extract all the nouns from the corpus contained within the [Python NLTK](http://nltk.org/) and attempt to construct each plural form. It then passes each word pair into the CEPT API to retrieve a [Sparce Distributed Representation (SDR)](https://github.com/numenta/nupic/wiki/Sparse-Distributed-Representations) of it. If this word or its derived plural for is below a sparcity threshold (default 2.0%), it both words are ignored. This means that the either the word(s) are quite uncommon in the English language, or that the derived plural form is malformed (ex: cactus -> cactuses). Each SDR retrieved is cached within a local `./cache` directory within a JSON file. 
 
+After extraction of nouns and conversion into SDRs, each noun will be pushed through NuPIC's temporal pooler as a raw SDR. Singular forms are followed by plural forms, and between each pair, a temporal pooler reset() occurs. After `--prediction-start` terms have been fed into NuPIC's TP (default 1000), predictions from the TP will be sent to the CEPT API to calculate the closest term from SDR.
+
 ### Requirements
 
 You'll need an app ID and app key from [CEPT](https://cept.3scale.net/) for the usage of their API to get word SDRs and decode SDRs back into words. 
