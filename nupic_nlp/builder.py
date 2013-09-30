@@ -17,6 +17,7 @@ def plural(word):
     return word + 's'
 
 
+
 def nouns_from_text(text, cache_dir):
   name = input_texts[text]
   word_cache = os.path.join(cache_dir, 'text')
@@ -24,36 +25,16 @@ def nouns_from_text(text, cache_dir):
   return nouns
 
 
+
 def write_sdr_cache(cache, path):
   with open(path, 'w') as f:
     f.write(json.dumps(cache))
 
 
+
 def is_valid(sdr, min_sparcity):
   return sdr['sparcity'] > min_sparcity
 
-
-# def get_sdr(term, cept_client, cache_dir):
-#   # Create a cache location for each term, where it will either be read in from
-#   # or cached within if we have to go to the CEPT API to get the SDR.
-#   cache_file = os.path.join(cache_dir, term + '.json')
-#   # Get it from the cache if it's there.
-#   if os.path.exists(cache_file):
-#     cached_sdr = json.loads(open(cache_file).read())
-#   # Get it from CEPT API if it's not cached.
-#   else:
-#     print '\tfetching %s from CEPT API' % term
-#     cached_sdr = cept_client.getBitmap(term)
-#     if 'sparcity' not in cached_sdr:
-#       # attach the sparcity for reference
-#       total = float(cached_sdr['width']) * float(cached_sdr['height'])
-#       on = len(cached_sdr['positions'])
-#       sparcity = round((on / total) * 100)
-#       cached_sdr['sparcity'] = sparcity
-#     # write to cache
-#     with open(cache_file, 'w') as f:
-#       f.write(json.dumps(cached_sdr))
-#   return cached_sdr
 
 
 def build_nouns(max_terms, min_sparcity, cache_dir, cept_app_id, cept_app_key):
