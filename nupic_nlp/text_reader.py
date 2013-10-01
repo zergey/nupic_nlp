@@ -16,16 +16,35 @@ texts = {
   'text9': 'The Man Who Was Thursday by G . K . Chesterton 1908'
 }
 
+
 def is_noun(word):
   return len(wn.synsets(word, NOUN)) > 0
+
 
 def filter_nouns(nouns):
   return [ n for n in nouns 
             if len(n) > 3 and len(wn.synsets(n, NOUN)) > 0 ]
 
+
 def write_cache(path, nouns):
   with open(path, 'w') as f:
     f.write(','.join(nouns))
+
+
+def nouns_from_text(text, cache_dir):
+  name = texts[text]
+  word_cache = os.path.join(cache_dir, 'text')
+  nouns = find_nouns(text, word_cache)
+  return nouns
+
+
+# Get the nouns from some of the text corpora included with the NLTK.
+def load_all_texts(cache_dir):
+  all_nouns = []
+  for i in range(1,9):
+      all_nouns += nouns_from_text('text' + str(i), cache_dir)
+  return all_nouns
+
 
 def find_nouns(text_name, cache_dir):
   cache_file = os.path.join(cache_dir, text_name);

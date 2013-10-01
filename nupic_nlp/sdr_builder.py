@@ -1,8 +1,7 @@
 import os
 import sys
 import json
-from reader import find_nouns
-from reader import texts as input_texts
+from text_reader import find_nouns, load_all_texts
 import pycept
 
 
@@ -15,13 +14,6 @@ def plural(word):
     return word[:-2] + 'en'
   else:
     return word + 's'
-
-
-def nouns_from_text(text, cache_dir):
-  name = input_texts[text]
-  word_cache = os.path.join(cache_dir, 'text')
-  nouns = find_nouns(text, word_cache)
-  return nouns
 
 
 def write_sdr_cache(cache, path):
@@ -78,10 +70,7 @@ class Builder(object):
     if not os.path.exists(cache_dir):
       os.mkdir(cache_dir)
 
-    # Get the nouns from some of the text corpora included with the NLTK.
-    all_nouns = []
-    for i in range(1,9):
-      all_nouns += nouns_from_text('text' + str(i), cache_dir)
+    all_nouns = load_all_texts(cache_dir)
 
     # Remove duplicate nouns.
     all_nouns = set(all_nouns)
@@ -131,20 +120,28 @@ class Builder(object):
     skipped_out = os.path.join(cache_dir, 'skipped.txt')
     with open(skipped_out, 'w') as f:
       f.write(', '.join(terms_skipped))
+    summary_out = os.path.join(cache_dir, 'summary.txt')
+    with open(summary_out, 'w') as f:
+      for n in valid_nouns:
+        f.write("%20s: %.2f%%\n" % (n['term'], n['bitmap']['sparcity']))
 
     print '\nNoun extraction and conversion into SDRs is complete!'
     print '====================================================='
     print '* %i nouns and their plural forms were converted to SDRs within the %s directory' \
       % (len(valid_nouns)/2, cache_dir)
+    print '\tSummary file written to %s' % summary_out
     print '* %i terms skipped because of %.1f%% sparcity requirement. These can be reviewed in %s' \
       % (len(terms_skipped), min_sparcity, skipped_out)
 
     return valid_nouns
 
 
+
   def convert_bitmap_to_sdr(self, bitmap):
     sdr_string = self.cept_client._bitmapToSdr(bitmap)
     return [int(bit) for bit in sdr_string]
+
+
 
   def closest_term(self, bitmap):
     closest = self.cept_client.bitmapToTerms(
