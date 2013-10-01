@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-from text_reader import find_nouns, load_all_texts
+from text_reader import Noun_Reader
 import pycept
 
 
@@ -54,6 +54,7 @@ class Builder(object):
   def __init__(self, cept_app_id, cept_app_key, cache_dir):
     self.cept_client = pycept.Cept(cept_app_id, cept_app_key)
     self.cache_dir = cache_dir
+    self.noun_reader = Noun_Reader(cache_dir)
 
 
   def build_nouns(self, max_terms, min_sparcity):
@@ -70,10 +71,7 @@ class Builder(object):
     if not os.path.exists(cache_dir):
       os.mkdir(cache_dir)
 
-    all_nouns = load_all_texts(cache_dir)
-
-    # Remove duplicate nouns.
-    all_nouns = set(all_nouns)
+    all_nouns = self.noun_reader.get_nouns_from_all_texts()
 
     # We're only processing the least amount of terms, either of the total number
     # of nouns available, or the number the user specified.

@@ -4,18 +4,6 @@ from nltk.corpus import wordnet as wn
 from nltk.corpus.reader import NOUN
 from nltk.tag import pos_tag
 
-texts = {
-  'text1': 'Moby Dick by Herman Melville 1851',
-  'text2': 'Sense and Sensibility by Jane Austen 1811',
-  'text3': 'The Book of Genesis',
-  'text4': 'Inaugural Address Corpus',
-  'text5': 'Chat Corpus',
-  'text6': 'Monty Python and the Holy Grail',
-  'text7': 'Wall Street Journal',
-  'text8': 'Personals Corpus',
-  'text9': 'The Man Who Was Thursday by G . K . Chesterton 1908'
-}
-
 
 def is_noun(word):
   return len(wn.synsets(word, NOUN)) > 0
@@ -31,39 +19,62 @@ def write_cache(path, nouns):
     f.write(','.join(nouns))
 
 
-def nouns_from_text(text, cache_dir):
-  name = texts[text]
-  word_cache = os.path.join(cache_dir, 'text')
-  nouns = find_nouns(text, word_cache)
-  return nouns
+class Noun_Reader(object):
+
+  def __init__(self, cache_dir):
+    self.cache_dir = cache_dir
+
+  TEXTS = {
+    'text1': 'Moby Dick by Herman Melville 1851',
+    'text2': 'Sense and Sensibility by Jane Austen 1811',
+    'text3': 'The Book of Genesis',
+    'text4': 'Inaugural Address Corpus',
+    'text5': 'Chat Corpus',
+    'text6': 'Monty Python and the Holy Grail',
+    'text7': 'Wall Street Journal',
+    'text8': 'Personals Corpus',
+    'text9': 'The Man Who Was Thursday by G . K . Chesterton 1908'
+  }
 
 
-# Get the nouns from some of the text corpora included with the NLTK.
-def load_all_texts(cache_dir):
-  all_nouns = []
-  for i in range(1,9):
-      all_nouns += nouns_from_text('text' + str(i), cache_dir)
-  return all_nouns
+
+  def get_nouns_from_all_texts(self):
+    all_nouns = []
+    for i in range(1,9):
+        all_nouns += self._get_nouns_from_text('text' + str(i))
+    # Remove duplicate nouns.
+    return set(all_nouns)
 
 
-def find_nouns(text_name, cache_dir):
-  cache_file = os.path.join(cache_dir, text_name);
-  
-  try:
-    os.mkdir(cache_dir)
-  except Exception:
-    pass
 
-  # print 'looking for %s cache' % text_name
-  if (os.path.exists(cache_file)):
-    nouns = open(cache_file, 'r').read().split(',')
-  else:
-    # print 'no cache for %s, reading book input from nltk' % text_name
-    _tmp = __import__('nltk.book', globals(), locals(), [text_name], -1)
-    txt = getattr(_tmp, text_name)
-    words = pos_tag(txt.vocab().keys())
-    nouns = [ word for word, pos in words 
-              if len(word) > 2 and pos == 'NN' and is_noun(word) ]
-    write_cache(cache_file, nouns)
+  def _get_nouns_from_text(self, text):
+    name = self.TEXTS[text]
+    word_cache = os.path.join(self.cache_dir, 'text')
+    nouns = self._find_nouns(text, word_cache)
+    return nouns
 
-  return nouns
+
+
+  def _find_nouns(self, text_name, word_cache):
+    cache_dir = word_cache
+    cache_file = os.path.join(cache_dir, text_name);
+    
+    try:
+      os.mkdir(cache_dir)
+    except Exception:
+      pass
+
+    # print 'looking for %s cache' % text_name
+    if (os.path.exists(cache_file)):
+      nouns = open(cache_file, 'r').read().split(',')
+    else:
+      # print 'no cache for %s, reading book input from nltk' % text_name
+      _tmp = __import__('nltk.book', globals(), locals(), [text_name], -1)
+      txt = getattr(_tmp, text_name)
+      words = pos_tag(txt.vocab().keys())
+      nouns = [ word for word, pos in words 
+                if len(word) > 2 and pos == 'NN' and is_noun(word) ]
+      write_cache(cache_file, nouns)
+
+    return nouns
+
