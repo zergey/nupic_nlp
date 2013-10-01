@@ -39,11 +39,12 @@ class Noun_Reader(object):
 
 
   def get_nouns_from_all_texts(self):
+    """Retrieves all nouns from the NLTK corpus of texts."""
     all_nouns = []
     for i in range(1,9):
         all_nouns += self._get_nouns_from_text('text' + str(i))
     # Remove duplicate nouns.
-    return set(all_nouns)
+    return list(set(all_nouns))
 
 
 

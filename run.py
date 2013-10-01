@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from nupic_nlp import SDR_Builder, Nupic_Word_Client
+from nupic_nlp import Noun_Reader, SDR_Builder, Nupic_Word_Client
 
 
 if 'CEPT_APP_ID' not in os.environ or 'CEPT_APP_KEY' not in os.environ:
@@ -58,9 +58,18 @@ def main(*args, **kwargs):
   min_sparcity = float(options.min_sparcity)
   prediction_start = int(options.prediction_start)
 
-  builder = SDR_Builder(cept_app_id, cept_app_key, cache_dir)
+  # Create the cache directory if necessary.
+  if not os.path.exists(cache_dir):
+    os.mkdir(cache_dir)
 
-  noun_bitmaps = builder.build_nouns(max_terms, min_sparcity)
+  reader = Noun_Reader(cache_dir)
+  nouns = reader.get_nouns_from_all_texts()
+  # Only process the max number of terms specified
+  if max_terms < len(nouns):
+    nouns = nouns[:max_terms]
+
+  builder = SDR_Builder(cept_app_id, cept_app_key, cache_dir)
+  noun_bitmaps = builder.get_singular_and_plural_noun_sdrs(nouns, min_sparcity)
 
   print '\nPushing %i nouns through NuPIC, predictions will be converted to words \
 after %i iterations.' % (len(noun_bitmaps), prediction_start)
