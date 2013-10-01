@@ -1,8 +1,6 @@
 import os
 import sys
 import json
-from reader import find_nouns
-from reader import texts as input_texts
 import pycept
 
 
@@ -17,43 +15,9 @@ def plural(word):
     return word + 's'
 
 
-def nouns_from_text(text, cache_dir):
-  name = input_texts[text]
-  word_cache = os.path.join(cache_dir, 'text')
-  nouns = find_nouns(text, word_cache)
-  return nouns
-
-
-def write_sdr_cache(cache, path):
-  with open(path, 'w') as f:
-    f.write(json.dumps(cache))
-
 
 def is_valid(sdr, min_sparcity):
   return sdr['sparcity'] > min_sparcity
-
-
-def get_sdr(term, cept_client, cache_dir):
-  # Create a cache location for each term, where it will either be read in from
-  # or cached within if we have to go to the CEPT API to get the SDR.
-  cache_file = os.path.join(cache_dir, term + '.json')
-  # Get it from the cache if it's there.
-  if os.path.exists(cache_file):
-    cached_sdr = json.loads(open(cache_file).read())
-  # Get it from CEPT API if it's not cached.
-  else:
-    print '\tfetching %s from CEPT API' % term
-    cached_sdr = cept_client.getBitmap(term)
-    if 'sparcity' not in cached_sdr:
-      # attach the sparcity for reference
-      total = float(cached_sdr['width']) * float(cached_sdr['height'])
-      on = len(cached_sdr['positions'])
-      sparcity = round((on / total) * 100)
-      cached_sdr['sparcity'] = sparcity
-    # write to cache
-    with open(cache_file, 'w') as f:
-      f.write(json.dumps(cached_sdr))
-  return cached_sdr
 
 
 
@@ -64,36 +28,48 @@ class Builder(object):
     self.cache_dir = cache_dir
 
 
-  def build_nouns(self, max_terms, min_sparcity):
-    
+  def term_to_sdr(self, term):
+    """ Create a cache location for each term, where it will either be read in 
+    from or cached within if we have to go to the CEPT API to get the SDR."""
+    cache_file = os.path.join(self.cache_dir, term + '.json')
+    # Get it from the cache if it's there.
+    if os.path.exists(cache_file):
+      cached_sdr = json.loads(open(cache_file).read())
+    # Get it from CEPT API if it's not cached.
+    else:
+      print '\tfetching %s from CEPT API' % term
+      cached_sdr = self.cept_client.getBitmap(term)
+      if 'sparcity' not in cached_sdr:
+        # attach the sparcity for reference
+        total = float(cached_sdr['width']) * float(cached_sdr['height'])
+        on = len(cached_sdr['positions'])
+        sparcity = round((on / total) * 100)
+        cached_sdr['sparcity'] = sparcity
+      # write to cache
+      with open(cache_file, 'w') as f:
+        f.write(json.dumps(cached_sdr))
+    return cached_sdr
+
+
+  def get_singular_and_plural_noun_sdrs(self, nouns, min_sparcity):
+    """Given a list of nouns, guesses its plural form and sends them both to the
+    CEPT API to get an SDR. If the sparsity of the SDR is lower than the 
+    min_sparcity, the singular and plural forms of the noun are ignored, thus
+    removing any inadequately translate plural forms and uncommonly-used words.
+    Returns a list of dicts with 'term' and 'bitmap' properties."""
     cept_client = self.cept_client
     cache_dir = self.cache_dir
+    noun_count = len(nouns)
 
-    if max_terms > 10:
-      progress_at = int(max_terms / 10)
+    if noun_count > 10:
+      progress_at = int(noun_count / 10)
     else:
       progress_at = 1
 
-    # Create the cache directory if necessary.
-    if not os.path.exists(cache_dir):
-      os.mkdir(cache_dir)
-
-    # Get the nouns from some of the text corpora included with the NLTK.
-    all_nouns = []
-    for i in range(1,9):
-      all_nouns += nouns_from_text('text' + str(i), cache_dir)
-
-    # Remove duplicate nouns.
-    all_nouns = set(all_nouns)
-
-    # We're only processing the least amount of terms, either of the total number
-    # of nouns available, or the number the user specified.
-    max_terms = min(len(all_nouns), max_terms)
-
-    print 'processing %i nouns...' % max_terms
+    print 'processing %i nouns...' % noun_count
 
     # Convert nouns into pairs of singular / plural nouns.
-    term_pair = [ (n, plural(n)) for n in all_nouns ]
+    term_pair = [ (n, plural(n)) for n in nouns ]
 
     # Some won't be adequate, so we'll only keep the good ones.
     valid_nouns = []
@@ -107,8 +83,8 @@ class Builder(object):
       # Plural term.
       pterm = item[1]
       # sys.stdout.write('%s, ' % (sterm,))
-      sbm = get_sdr(sterm, cept_client, cache_dir)
-      pbm = get_sdr(pterm, cept_client, cache_dir)
+      sbm = self.term_to_sdr(sterm)
+      pbm = self.term_to_sdr(pterm)
 
       # Only gather the ones we deem as 'valid'.
       if is_valid(sbm, min_sparcity) and is_valid(pbm, min_sparcity):
@@ -119,32 +95,38 @@ class Builder(object):
         # print '\tsdrs for %s and %s are too sparce, skipping!' % item
         terms_skipped.append(sterm)
 
-      count = terms_processed + len(terms_skipped)
-      if count >= max_terms:
-        break
+      nouns_processed = terms_processed + len(terms_skipped)
 
       # Print progress
-      if count % progress_at == 0:
-        print '\n%.0f%% done...' % (float(count) / float(max_terms) * 100)
-        print '%i total terms reviewed, %i terms skipped' % (count, len(terms_skipped))
+      if nouns_processed % progress_at == 0:
+        print '\n%.0f%% done...' % (float(nouns_processed) / float(noun_count) * 100)
+        print '%i total terms reviewed, %i terms skipped' % (nouns_processed, len(terms_skipped))
 
     skipped_out = os.path.join(cache_dir, 'skipped.txt')
     with open(skipped_out, 'w') as f:
       f.write(', '.join(terms_skipped))
+    summary_out = os.path.join(cache_dir, 'summary.txt')
+    with open(summary_out, 'w') as f:
+      for n in valid_nouns:
+        f.write("%20s: %.2f%%\n" % (n['term'], n['bitmap']['sparcity']))
 
     print '\nNoun extraction and conversion into SDRs is complete!'
     print '====================================================='
     print '* %i nouns and their plural forms were converted to SDRs within the %s directory' \
       % (len(valid_nouns)/2, cache_dir)
+    print '\tSummary file written to %s' % summary_out
     print '* %i terms skipped because of %.1f%% sparcity requirement. These can be reviewed in %s' \
       % (len(terms_skipped), min_sparcity, skipped_out)
 
     return valid_nouns
 
 
+
   def convert_bitmap_to_sdr(self, bitmap):
     sdr_string = self.cept_client._bitmapToSdr(bitmap)
     return [int(bit) for bit in sdr_string]
+
+
 
   def closest_term(self, bitmap):
     closest = self.cept_client.bitmapToTerms(
