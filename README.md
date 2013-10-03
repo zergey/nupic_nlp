@@ -6,7 +6,7 @@ This repo contains my experiments with the using CEPT word SDRs as input into th
 
 You'll need an app ID and app key from [CEPT](https://cept.3scale.net/) for the usage of their API to get word SDRs and decode SDRs back into words. 
 
-You'll also need about 35MB of space to store the text corpus from the NLTK and SDRs from CEPT.
+You'll also need 35MB (or more depending on what individual experiments you run) of space to store the text corpus from the NLTK and SDRs from CEPT.
 
 ## Installation
 
@@ -39,9 +39,79 @@ All word SDRs from CEPT are cached by default within a `./cache` directory for e
 
 ## Experiments
 
+### Word Association
+
+The `run_association_experiment.py` script is a generic script to read input files with word associations and pass them into NuPIC one after the other in an attempt to see if NuPIC will properly associate the semantics encoded with their SDRs.
+
+#### Usage
+
+    ./run_association_experiment.py [input file(s)] [options]
+
+If one input file is specified, it's assumed that there is a hard-coded association on each line of the file, in this format:
+
+    term-a1,term-b1
+    term-a2,term-b2
+    <etc>
+
+See an example in `resources/animal_food.csv`.
+
+If two input files are specified, a it's assumed that each file has a topical grouping, and associations will be randomly passed into NuPIC from each file. For example, take a look at `resources/animals.txt` and `resources/vegetables.txt`.
+
+    ./run_association_experiment.py resources/animals.txt resources/vegetables.txt -p 100 -t 1000
+
+In the example above, a random term from the animals text is associated with another random term in the vegetables text, and this pair is passed into NuPIC 1000 times. NuPIC's predicted SDRs are passed back into the CEPT API and printed to the screen after 100 iterations. (See options below for details on the `-p` and `-t` options.)
+
+Here is an example of the output you'll get from running the above command:
+
+    $ ./run_association_experiment.py resources/animals.txt resources/vegetables.txt -p 100 -t 1000
+    Prediction output for 1000 pairs of terms
+
+    #COUNT        TERM ONE        TERM TWO | TERM TWO PREDICTION
+    --------------------------------------------------------------------
+    #  100          salmon          endive |              lentil
+    #  101       crocodile          borage |
+    #  102            wolf        turmeric |            amaranth
+    #  103         termite       chickweed |
+    #  104           quail            poke |
+    #  105      woodpecker         shallot |
+    #  106         echidna           caper |              tomato
+    #  107         panther            guar |
+    #  108             ape       tomatillo |       chrysanthemum
+    #  109             bee         cabbage |
+    #  110        seahorse          sorrel |
+    #  111           camel       tomatillo |          lemongrass
+    #  112             rat          chives |
+    #  113            crab             yam |              turnip
+
+If the word association is understood by NuPIC, the predictions should be within the same topical category of the second file. NuPIC should even predict words that are not within the original term listing.
+
+##### Options
+
+    --verbose
+    -v
+
+Prints details about CEPT API calls and minimum sparsity errors.
+
+    --max-terms=<int>
+    -t <int>
+
+How many total terms to run. Stops after reaching this limit. If `all` is specified instead of an integer value, it will run indefinitely.
+
+    --min-sparsity=<float>
+    -s <float>
+
+Required SDR sparsity, in percent, for terms to be included. This omits uncommon words from the process. The lower the sparsity, the less words get processed. CEPT will return anywhere from 1.0% to 5.0% sparse representations. The default for this value is 0.0%.
+
+    --prediction-start=<int>
+    -p <int>
+
+When to start sending the predicted SDRs from NuPIC back to the CEPT API to translate back into English words. This adds overhead because of the HTTP calls, and initial results will probably be bad. So setting this a bit into your term list is a good idea if you want to time-box the process.
+
 ### Singular and Plural Nouns
 
-The `run_plural_noun_experiment.py` script contains code to extract all the nouns from the corpus contained within the [Python NLTK](http://nltk.org/) and attempt to construct each plural form. It then passes each word pair into the CEPT API to retrieve a [Sparce Distributed Representation (SDR)](https://github.com/numenta/nupic/wiki/Sparse-Distributed-Representations) of it. If this word or its derived plural for is below a sparcity threshold (default 2.0%), it both words are ignored. This means that the either the word(s) are quite uncommon in the English language, or that the derived plural form is malformed (ex: cactus -> cactuses). Each SDR retrieved is cached within a local `./cache` directory within a JSON file. 
+> This really doesn't work at all. NuPIC doesn't predict anything. It was my first experiment, and I made the assumption that singular and plural semantic information was inherent in the CEPT SDRs, but it seems they are not. I am leaving it as an example of how you might extract text from the NLTK corpus and push through NuPIC.
+
+The `run_plural_noun_experiment.py` script contains code to extract all the nouns from the corpus contained within the [Python NLTK](http://nltk.org/) and attempt to construct each plural form. It then passes each word pair into the CEPT API to retrieve a [Sparce Distributed Representation (SDR)](https://github.com/numenta/nupic/wiki/Sparse-Distributed-Representations) of it. If this word or its derived plural for is below a sparsity threshold (default 2.0%), it both words are ignored. This means that the either the word(s) are quite uncommon in the English language, or that the derived plural form is malformed (ex: cactus -> cactuses). Each SDR retrieved is cached within a local `./cache` directory within a JSON file. 
 
 After extraction of nouns and conversion into SDRs, each noun will be pushed through NuPIC's temporal pooler as a raw SDR. Singular forms are followed by plural forms, and between each pair, a temporal pooler reset() occurs. After `--prediction-start` terms have been fed into NuPIC's TP (default 1000), predictions from the TP will be sent to the CEPT API to calculate the closest term from SDR.
 
@@ -49,21 +119,45 @@ After extraction of nouns and conversion into SDRs, each noun will be pushed thr
 
 Just run the script, which will kick off a long process on the first time it's runs. This long process will import all the NLTK texts, extract all the nouns from them, and cache them locally within `./cache/texts`. It will then start looping through them and calling the CEPT API to get their SDRs.
 
-    python run_plural_noun_experiment.py
+    ./run_plural_noun_experiment.py [options]
 
-This will take a very long time, so you might want to try it out by specifying the maximum amount of terms to process:
+##### Options
+
+    --verbose
+    -v
+
+Prints details about CEPT API calls and minimum sparsity errors.
+
+    --max-terms=<int>
+    -t <int>
+
+How many total terms to run. Stops after reaching this limit. If `all` is specified instead of an integer value, it will run indefinitely.
+
+    --min-sparsity=<float>
+    -s <float>
+
+Required SDR sparsity, in percent, for terms to be included. This omits uncommon words from the process. The lower the sparsity, the less words get processed. CEPT will return anywhere from 1.0% to 5.0% sparse representations. The default for this value is 0.0%.
+
+    --prediction-start=<int>
+    -p <int>
+
+When to start sending the predicted SDRs from NuPIC back to the CEPT API to translate back into English words. This adds overhead because of the HTTP calls, and initial results will probably be bad. So setting this a bit into your term list is a good idea if you want to time-box the process.
+
+##### Examples
+
+Running without any options will take a very long time, so you might want to try it out by specifying the maximum amount of terms to process:
 
     python run_plural_noun_experiment.py --max-terms=10
 
-You can also specify the minimun sparcity threshold:
+You can also specify the minimun sparsity threshold:
 
-    python run_plural_noun_experiment.py --max-terms=10 --min-sparcity=1.0
+    python run_plural_noun_experiment.py --max-terms=10 --min-sparsity=1.0
    
 The NLTK corpus contains somewhere around 6,300 nouns to process, which means over 12K API calls to CEPT for SDRs. The results of each call are cached in the `./cache` directory, so subsequent runs will be much faster, but if you want to run it all in one go, I would suggest you run it overnight and specify `--max-terms=all`.
 
 ## Texts and Terms
 
-The texts this program uses are:
+The NLTK texts this program has available are:
 
 - text1: Moby Dick by Herman Melville 1851
 - text2: Sense and Sensibility by Jane Austen 1811
@@ -75,8 +169,7 @@ The texts this program uses are:
 - text8: Personals Corpus
 - text9: The Man Who Was Thursday by G . K . Chesterton 1908
 
-All the nouns from this corpus of text are extracted using NLTK's `pos_tag` function, looking for words tagged with `NN`. Resulting terms seem to be sometimes mis-categorized, so they are also passed through Wordnet and confirmed to be nouns before sent to CEPT for SDR conversion.
-
+All the nouns processed from this corpus of text by the `run_plural_noun_experiment.py` experiment are extracted using NLTK's `pos_tag` function, looking for words tagged with `NN`. Resulting terms seem to be sometimes mis-categorized, so they are also passed through Wordnet and confirmed to be nouns before sent to CEPT for SDR conversion.
 
 ## Things to try:
 
