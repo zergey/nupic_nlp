@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 import os
 import sys
-import string
-from random import choice
 from optparse import OptionParser
-from nupic_nlp import Noun_Reader, SDR_Builder, Nupic_Word_Client
+from nupic_nlp import SDR_Builder, Nupic_Word_Client, Association_Runner
 
 
 if 'CEPT_APP_ID' not in os.environ or 'CEPT_APP_KEY' not in os.environ:
@@ -42,71 +40,6 @@ parser.add_option('-p', '--prediction-start',
 this many values have been seen.')
 
 
-def read_words_from(file):
-  lines = open(file).read().strip().split('\n')
-  return [tuple(line.split(',')) for line in lines]
-
-
-def feed_term(sdr_builder, nupic_client, term, get_predicted_word=False):
-  raw_sdr = sdr_builder.term_to_sdr(term)
-  sdr_array = sdr_builder.convert_bitmap_to_sdr(raw_sdr)
-  predicted_bitmap = nupic_client.feed(sdr_array)
-  output_sparsity = float(len(predicted_bitmap)) / (float(raw_sdr['width']) * float(raw_sdr['height'])) * 100.0
-  # print 'Sparcity %s:prediction ==> %.2f%%: %.2f%%' % (term, raw_sdr['sparsity'], output_sparsity)
-  if get_predicted_word:
-    if len(predicted_bitmap) is 0:
-      predicted_word = 'Unknown'
-    else:
-      predicted_word = sdr_builder.closest_term(predicted_bitmap)
-    return predicted_word
-
-
-def strip_punctuation(s):
-  return s.translate(string.maketrans("",""), string.punctuation)
-
-
-
-def direct_association(input_file, builder, nupic, max_terms, min_sparsity, prediction_start):
-  associations = read_words_from(input_file)
-
-  for count in range(0, max_terms):
-    # Loops over association list until max_terms is met
-    if count >= len(associations):
-      associations += associations
-    term1 = strip_punctuation(associations[count][0])
-    term2 = strip_punctuation(associations[count][1])
-    show_predicted_word = (count >= prediction_start)
-    term2_prediction = feed_term(builder, nupic, term1, show_predicted_word)
-    feed_term(builder, nupic, term2)
-    if show_predicted_word:
-      if term2_prediction is not 'Unknown':
-        print u'#%i: %s - > %s (%s)' % (count, term1, term2, term2_prediction)
-    else:
-      print count
-    nupic.reset()
-
-
-
-def random_dual_association(term1_file, term2_file, builder, nupic, max_terms, min_sparsity, prediction_start):
-  
-  all_first_terms = open(term1_file).read().strip().split('\n')
-  all_second_terms = open(term2_file).read().strip().split('\n')
-
-  for count in range(0, max_terms):
-    term1 = choice(all_first_terms)
-    term2 = choice(all_second_terms)
-    show_predicted_word = (count >= prediction_start)
-    term2_prediction = feed_term(builder, nupic, term1, show_predicted_word)
-    feed_term(builder, nupic, term2)
-    if show_predicted_word:
-      if term2_prediction is not 'Unknown':
-        print u'#%i: %s - > %s (%s)' % (count, term1, term2, term2_prediction)
-    else:
-      print count
-    nupic.reset()
-
-
-
 def main(*args, **kwargs):
   """ NuPIC NLP main entry point. """
   (options, args) = parser.parse_args()
@@ -117,21 +50,21 @@ def main(*args, **kwargs):
   min_sparsity = float(options.min_sparsity)
   prediction_start = int(options.prediction_start)
 
-  
   # Create the cache directory if necessary.
   if not os.path.exists(cache_dir):
     os.mkdir(cache_dir)
 
   builder = SDR_Builder(cept_app_id, cept_app_key, cache_dir)
   nupic = Nupic_Word_Client()
+  runner = Association_Runner(builder, nupic, max_terms, min_sparsity, prediction_start)
 
   if len(args) is 0:
     print 'no input file provided!'
     exit(1)
   elif len(args) == 1:
-    direct_association(args[0], builder, nupic, max_terms, min_sparsity, prediction_start)
+    runner.direct_association(args[0])
   else: 
-    random_dual_association(args[0], args[1], builder, nupic, max_terms, min_sparsity, prediction_start)
+    runner.random_dual_association(args[0], args[1])
 
 
 if __name__ == "__main__":

@@ -84,6 +84,6 @@ All the nouns from this corpus of text are extracted using NLTK's `pos_tag` func
 
 Randomly chooses one term from the animal list, and one from the veggie list. Sends that pair through NuPIC, printing NUPIC's prediction for the second term. Should generally choose plant-based objects for the second term after some training.
 
-    ./run_association_experiment.py resources/associations/country-capitals.csv -p 0 -t 300
+    ./run_association_experiment.py resources/associations/x-in-y.csv -p 0 -t 300
 
 Reads an input file of country --> capital associations, and passes them into NuPIC in the same way. Doesn't predict very well until it's seen the entire list once, then it is pretty decent.

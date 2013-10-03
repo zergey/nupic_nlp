@@ -2,7 +2,10 @@
 import os
 import sys
 from optparse import OptionParser
-from nupic_nlp import Noun_Reader, SDR_Builder, Nupic_Word_Client
+from nupic_nlp import (Noun_Reader, 
+                       SDR_Builder, 
+                       Nupic_Word_Client, 
+                       Association_Runner)
 
 
 if 'CEPT_APP_ID' not in os.environ or 'CEPT_APP_KEY' not in os.environ:
@@ -14,12 +17,12 @@ if 'CEPT_APP_ID' not in os.environ or 'CEPT_APP_KEY' not in os.environ:
 cept_app_id = os.environ['CEPT_APP_ID']
 cept_app_key = os.environ['CEPT_APP_KEY']
 
-DEFAULT_MAX_TERMS = '2000'
-DEFAULT_MIN_SPARCITY = 2.0 # percent
-DEFAULT_PREDICTION_START = 1000
+DEFAULT_MAX_TERMS = '100'
+DEFAULT_MIN_sparsity = 2.0 # percent
+DEFAULT_PREDICTION_START = '50'
 cache_dir = './cache'
 
-parser = OptionParser(usage="%prog [options]")
+parser = OptionParser(usage="%prog input_file [options]")
 
 parser.add_option('-t', '--max-terms',
   default=DEFAULT_MAX_TERMS,
@@ -27,10 +30,10 @@ parser.add_option('-t', '--max-terms',
   help='Maximum terms to process. Specify "all" for to process all available \
 terms.')
 
-parser.add_option('-s', '--min-sparcity',
-  default=DEFAULT_MIN_SPARCITY,
-  dest='min_sparcity',
-  help='Minimum SDR sparcity threshold. Any words processed with sparcity lower \
+parser.add_option('-s', '--min-sparsity',
+  default=DEFAULT_MIN_sparsity,
+  dest='min_sparsity',
+  help='Minimum SDR sparsity threshold. Any words processed with sparsity lower \
 than this value will be ignored.')
 
 parser.add_option('-p', '--prediction-start',
@@ -47,7 +50,7 @@ def main(*args, **kwargs):
     max_terms = sys.maxint
   else:
     max_terms = int(options.max_terms)
-  min_sparcity = float(options.min_sparcity)
+  min_sparsity = float(options.min_sparsity)
   prediction_start = int(options.prediction_start)
 
   # Create the cache directory if necessary.
@@ -55,51 +58,14 @@ def main(*args, **kwargs):
     os.mkdir(cache_dir)
 
   reader = Noun_Reader(cache_dir)
-  nouns = reader.get_nouns_from_all_texts()
-  # Only process the max number of terms specified
-  if max_terms < len(nouns):
-    nouns = nouns[:max_terms]
-
   builder = SDR_Builder(cept_app_id, cept_app_key, cache_dir)
-  noun_bitmaps = builder.get_singular_and_plural_noun_sdrs(nouns, min_sparcity)
-
-  print '\nPushing %i nouns through NuPIC, predictions will be converted to words \
-after %i iterations.' % (len(noun_bitmaps), prediction_start)
   nupic = Nupic_Word_Client()
-  count = 1
-  last_singular = ''
-  output = []
-  header_written = False
-  for noun in noun_bitmaps:
-    noun_sdr = builder.convert_bitmap_to_sdr(noun['bitmap'])
-    raw_prediction = nupic.feed(noun_sdr)
-    if count < prediction_start and count % 50 is 0:
-      print 'nupic has processed %i terms so far...' % count
-    if count >= prediction_start:
-      if not header_written:
-        print 'Starting prediction conversion!'
-        print '\n%20s%20s |%20s' % ('SINGULAR', 'PLURAL', 'PREDICTED PLURAL')
-        print '------------------------------------------------------------------'
-        header_written = True
-      prediction_sdr = builder.convert_sdr_to_bitmap(raw_prediction)
-      predicted_word = builder.closest_term(prediction_sdr)
-      if not predicted_word: predicted_word = '?'
-      if count % 2 is 0:
-        # Just processed plural form, so reset
-        nupic.reset()
-        print '%20s%20s |%20s' \
-          % (last_singular, noun['term'], predicted_word)
-        output.append({
-          'singular': last_singular, 
-          'plural': noun['term'], 
-          'prediction': predicted_word
-        })
-      else:
-        last_singular = noun['term']
+  runner = Association_Runner(builder, nupic, max_terms, min_sparsity, prediction_start)
 
-    count += 1
+  noun_pairs = reader.get_noun_pairs_from_all_texts(max_terms)
+  
+  runner.associate(noun_pairs)
 
-  # print output
 
 if __name__ == "__main__":
   main()

@@ -5,6 +5,17 @@ from nltk.corpus.reader import NOUN
 from nltk.tag import pos_tag
 
 
+def plural(word):
+  if word.endswith('y'):
+    return word[:-1] + 'ies'
+  elif word[-1] in 'sx' or word[-2:] in ['sh', 'ch']:
+    return word + 'es'
+  elif word.endswith('an'):
+    return word[:-2] + 'en'
+  else:
+    return word + 's'
+
+
 def is_noun(word):
   return len(wn.synsets(word, NOUN)) > 0
 
@@ -38,13 +49,19 @@ class Noun_Reader(object):
 
 
 
-  def get_nouns_from_all_texts(self):
+  def get_nouns_from_all_texts(self, max_terms):
     """Retrieves all nouns from the NLTK corpus of texts."""
     all_nouns = []
     for i in range(1,9):
         all_nouns += self._get_nouns_from_text('text' + str(i))
     # Remove duplicate nouns.
-    return list(set(all_nouns))
+    return list(set(all_nouns[:max_terms]))
+
+
+  def get_noun_pairs_from_all_texts(self, max_terms):
+    """Retrieves all nouns from the NLTK corpus of texts."""
+    singulars = self.get_nouns_from_all_texts(max_terms)
+    return [(singular, plural(singular)) for singular in singulars]
 
 
 
