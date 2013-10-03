@@ -29,13 +29,14 @@ class Client(object):
 
   def feed(self, sdr):
     tp = self.tp
-    narr = numpy.ndarray((len(sdr),), buffer=numpy.array(sdr), dtype="uint32")
-    tp.compute(numpy.array(narr), enableLearn = True, computeInfOutput = True)
+    narr = numpy.array(sdr, dtype="uint32")
+    tp.compute(narr, enableLearn = True, computeInfOutput = True)
 
     predicted_cells = tp.getPredictedState()
     # print predicted_cells.tolist()
     predicted_columns = predicted_cells.max(axis=1)
     # print predicted_columns.tolist()
+    # import pdb; pdb.set_trace()
     return predicted_columns.nonzero()[0].tolist()
 
 
