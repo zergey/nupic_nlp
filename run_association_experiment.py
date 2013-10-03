@@ -15,7 +15,7 @@ cept_app_id = os.environ['CEPT_APP_ID']
 cept_app_key = os.environ['CEPT_APP_KEY']
 
 DEFAULT_MAX_TERMS = '100'
-DEFAULT_MIN_sparsity = 2.0 # percent
+DEFAULT_MIN_sparsity = 0.0 # percent
 DEFAULT_PREDICTION_START = '50'
 cache_dir = './cache'
 
@@ -39,6 +39,12 @@ parser.add_option('-p', '--prediction-start',
   help='Start converting predicted values into words using the CEPT API after \
 this many values have been seen.')
 
+parser.add_option("-v", "--verbose",
+  action="store_true",
+  dest="verbose",
+  default=False,
+  help="Prints details about errors and API calls.")
+
 
 def main(*args, **kwargs):
   """ NuPIC NLP main entry point. """
@@ -49,14 +55,17 @@ def main(*args, **kwargs):
     max_terms = int(options.max_terms)
   min_sparsity = float(options.min_sparsity)
   prediction_start = int(options.prediction_start)
+  verbosity = 0
+  if options.verbose:
+    verbosity = 1
 
   # Create the cache directory if necessary.
   if not os.path.exists(cache_dir):
     os.mkdir(cache_dir)
 
-  builder = SDR_Builder(cept_app_id, cept_app_key, cache_dir)
+  builder = SDR_Builder(cept_app_id, cept_app_key, cache_dir, verbosity=verbosity)
   nupic = Nupic_Word_Client()
-  runner = Association_Runner(builder, nupic, max_terms, min_sparsity, prediction_start)
+  runner = Association_Runner(builder, nupic, max_terms, min_sparsity, prediction_start, verbosity=verbosity)
 
   if len(args) is 0:
     print 'no input file provided!'

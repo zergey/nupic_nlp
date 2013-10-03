@@ -9,14 +9,19 @@ def strip_punctuation(s):
   return s.translate(string.maketrans("",""), string.punctuation)
 
 
+class Sparsity_Exception(Exception):
+  pass
+
+
 class Association_Runner(object):
 
-  def __init__(self, builder, nupic, max_terms, min_sparsity, prediction_start):
+  def __init__(self, builder, nupic, max_terms, min_sparsity, prediction_start, verbosity=0):
     self.builder = builder
     self.nupic = nupic
     self.max_terms = max_terms
     self.min_sparsity = min_sparsity
     self.prediction_start = prediction_start
+    self.verbosity = verbosity
 
 
   def associate(self, pairs):
@@ -31,9 +36,15 @@ class Association_Runner(object):
       term1 = strip_punctuation(pairs[count][0]).lower()
       term2 = strip_punctuation(pairs[count][1]).lower()
       fetch_result = (count >= self.prediction_start)
-      term2_prediction = self._feed_term(term1, fetch_result)
-      self._feed_term(term2)
-      self.nupic.reset()
+      try:
+        term2_prediction = self._feed_term(term1, fetch_result)
+        self._feed_term(term2)
+        self.nupic.reset()
+      except Sparsity_Exception as sparsity_err:
+        if self.verbosity > 0:
+          print sparsity_err
+          print 'skipping pair [%s, %s]' % pairs[count]
+        continue
       if term2_prediction:
         print '#%5i%16s%16s |%20s' % (count, term1, term2, term2_prediction)
     
@@ -56,6 +67,10 @@ class Association_Runner(object):
 
   def _feed_term(self, term, fetch_word_from_sdr=False):
     raw_sdr = self.builder.term_to_sdr(term)
+    sparsity = raw_sdr['sparsity']
+    if sparsity < self.min_sparsity:
+      raise Sparsity_Exception('"%s" has a sparsity of %.1f%%, which is below the \
+minimum sparsity threshold of %.1f%%.' % (term, sparsity, self.min_sparsity))
     sdr_array = self.builder.convert_bitmap_to_sdr(raw_sdr)
     predicted_bitmap = self.nupic.feed(sdr_array)
     output_sparsity = float(len(predicted_bitmap)) / (float(raw_sdr['width']) * float(raw_sdr['height'])) * 100.0
