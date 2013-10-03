@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 import json
@@ -16,8 +17,8 @@ def plural(word):
 
 
 
-def is_valid(sdr, min_sparcity):
-  return sdr['sparcity'] > min_sparcity
+def is_valid(sdr, min_sparsity):
+  return sdr['sparsity'] > min_sparsity
 
 
 
@@ -37,24 +38,23 @@ class Builder(object):
       cached_sdr = json.loads(open(cache_file).read())
     # Get it from CEPT API if it's not cached.
     else:
-      print '\tfetching %s from CEPT API' % term
       cached_sdr = self.cept_client.getBitmap(term)
-      if 'sparcity' not in cached_sdr:
-        # attach the sparcity for reference
+      if 'sparsity' not in cached_sdr:
+        # attach the sparsity for reference
         total = float(cached_sdr['width']) * float(cached_sdr['height'])
         on = len(cached_sdr['positions'])
-        sparcity = round((on / total) * 100)
-        cached_sdr['sparcity'] = sparcity
+        sparsity = round((on / total) * 100)
+        cached_sdr['sparsity'] = sparsity
       # write to cache
       with open(cache_file, 'w') as f:
         f.write(json.dumps(cached_sdr))
     return cached_sdr
 
 
-  def get_singular_and_plural_noun_sdrs(self, nouns, min_sparcity):
+  def get_singular_and_plural_noun_sdrs(self, nouns, min_sparsity):
     """Given a list of nouns, guesses its plural form and sends them both to the
     CEPT API to get an SDR. If the sparsity of the SDR is lower than the 
-    min_sparcity, the singular and plural forms of the noun are ignored, thus
+    min_sparsity, the singular and plural forms of the noun are ignored, thus
     removing any inadequately translate plural forms and uncommonly-used words.
     Returns a list of dicts with 'term' and 'bitmap' properties."""
     cept_client = self.cept_client
@@ -87,7 +87,7 @@ class Builder(object):
       pbm = self.term_to_sdr(pterm)
 
       # Only gather the ones we deem as 'valid'.
-      if is_valid(sbm, min_sparcity) and is_valid(pbm, min_sparcity):
+      if is_valid(sbm, min_sparsity) and is_valid(pbm, min_sparsity):
         valid_nouns.append({'term': sterm, 'bitmap': sbm})
         valid_nouns.append({'term': pterm, 'bitmap': pbm})
         terms_processed += 1
@@ -108,15 +108,15 @@ class Builder(object):
     summary_out = os.path.join(cache_dir, 'summary.txt')
     with open(summary_out, 'w') as f:
       for n in valid_nouns:
-        f.write("%20s: %.2f%%\n" % (n['term'], n['bitmap']['sparcity']))
+        f.write("%20s: %.2f%%\n" % (n['term'], n['bitmap']['sparsity']))
 
     print '\nNoun extraction and conversion into SDRs is complete!'
     print '====================================================='
     print '* %i nouns and their plural forms were converted to SDRs within the %s directory' \
       % (len(valid_nouns)/2, cache_dir)
     print '\tSummary file written to %s' % summary_out
-    print '* %i terms skipped because of %.1f%% sparcity requirement. These can be reviewed in %s' \
-      % (len(terms_skipped), min_sparcity, skipped_out)
+    print '* %i terms skipped because of %.1f%% sparsity requirement. These can be reviewed in %s' \
+      % (len(terms_skipped), min_sparsity, skipped_out)
 
     return valid_nouns
 
@@ -130,7 +130,7 @@ class Builder(object):
 
   def closest_term(self, bitmap):
     closest = self.cept_client.bitmapToTerms(
-      bitmap['width'], bitmap['height'], bitmap['positions'])
+      128, 128, bitmap)
     if len(closest) is 0:
       return None
     else:

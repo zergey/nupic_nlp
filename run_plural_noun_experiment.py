@@ -40,14 +40,6 @@ parser.add_option('-p', '--prediction-start',
 this many values have been seen.')
 
 
-def convert_nupic_sdr_to_bitmap(sdr):
-  out = {'width': 128, 'height': 128, 'positions': []}
-  for i, v in enumerate(sdr):
-    if int(v) is 1:
-      out['positions'].append(i)
-  return out
-
-
 def main(*args, **kwargs):
   """ NuPIC NLP main entry point. """
   (options, args) = parser.parse_args()
@@ -89,7 +81,7 @@ after %i iterations.' % (len(noun_bitmaps), prediction_start)
         print '\n%20s%20s |%20s' % ('SINGULAR', 'PLURAL', 'PREDICTED PLURAL')
         print '------------------------------------------------------------------'
         header_written = True
-      prediction_sdr = convert_nupic_sdr_to_bitmap(raw_prediction)
+      prediction_sdr = builder.convert_sdr_to_bitmap(raw_prediction)
       predicted_word = builder.closest_term(prediction_sdr)
       if not predicted_word: predicted_word = '?'
       if count % 2 is 0:

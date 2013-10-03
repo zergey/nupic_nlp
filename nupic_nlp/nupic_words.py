@@ -2,6 +2,18 @@ import numpy
 # This is the class correspondingn to the C++ optimized Temporal Pooler (default)
 from nupic.research.TP10X2 import TP10X2 as TP
 
+
+def formatRow(x):
+  s = ''
+  for c in range(len(x)):
+    if c > 0 and c % 10 == 0:
+      s += ' '
+    s += str(x[c])
+  s += ' '
+  return s
+
+
+
 class Client(object):
 
   def __init__(self):
@@ -18,7 +30,13 @@ class Client(object):
   def feed(self, sdr):
     tp = self.tp
     narr = numpy.ndarray((len(sdr),), buffer=numpy.array(sdr), dtype="uint32")
-    return tp.compute(numpy.array(narr), enableLearn = True, computeInfOutput = True)
+    tp.compute(numpy.array(narr), enableLearn = True, computeInfOutput = True)
+
+    predicted_cells = tp.getPredictedState()
+    # print predicted_cells.tolist()
+    predicted_columns = predicted_cells.max(axis=1)
+    # print predicted_columns.tolist()
+    return predicted_columns.nonzero()[0].tolist()
 
 
   def reset(self):
