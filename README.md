@@ -76,3 +76,14 @@ The texts this program uses are:
 - text9: The Man Who Was Thursday by G . K . Chesterton 1908
 
 All the nouns from this corpus of text are extracted using NLTK's `pos_tag` function, looking for words tagged with `NN`. Resulting terms seem to be sometimes mis-categorized, so they are also passed through Wordnet and confirmed to be nouns before sent to CEPT for SDR conversion.
+
+
+## Things to try:
+
+    ./run_association_experiment.py resources/animals.txt resources/vegetables.txt -p 0 -t 1000
+
+Randomly chooses one term from the animal list, and one from the veggie list. Sends that pair through NuPIC, printing NUPIC's prediction for the second term. Should generally choose plant-based objects for the second term after some training.
+
+    ./run_association_experiment.py resources/associations/country-capitals.csv -p 0 -t 300
+
+Reads an input file of country --> capital associations, and passes them into NuPIC in the same way. Doesn't predict very well until it's seen the entire list once, then it is pretty decent.
