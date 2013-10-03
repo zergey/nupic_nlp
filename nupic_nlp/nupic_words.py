@@ -3,17 +3,6 @@ import numpy
 from nupic.research.TP10X2 import TP10X2 as TP
 
 
-def formatRow(x):
-  s = ''
-  for c in range(len(x)):
-    if c > 0 and c % 10 == 0:
-      s += ' '
-    s += str(x[c])
-  s += ' '
-  return s
-
-
-
 class Client(object):
 
   def __init__(self):
