@@ -18,7 +18,7 @@ cept_app_key = os.environ['CEPT_APP_KEY']
 
 DEFAULT_MAX_TERMS = '100'
 DEFAULT_MIN_sparsity = 2.0 # percent
-DEFAULT_PREDICTION_START = 1000
+DEFAULT_PREDICTION_START = '50'
 cache_dir = './cache'
 
 parser = OptionParser(usage="%prog input_file [options]")
