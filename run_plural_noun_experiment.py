@@ -2,7 +2,7 @@
 import os
 import sys
 from optparse import OptionParser
-from nupic_nlp import (Noun_Reader, 
+from nupic_nlp import (NLTK_Noun_Reader, 
                        SDR_Builder, 
                        Nupic_Word_Client, 
                        Association_Runner)
@@ -66,7 +66,7 @@ def main(*args, **kwargs):
   if not os.path.exists(cache_dir):
     os.mkdir(cache_dir)
 
-  reader = Noun_Reader(cache_dir)
+  reader = NLTK_Noun_Reader(cache_dir)
   builder = SDR_Builder(cept_app_id, cept_app_key, cache_dir, verbosity=verbosity)
   nupic = Nupic_Word_Client()
   runner = Association_Runner(builder, nupic, max_terms, min_sparsity, prediction_start, verbosity=verbosity)

@@ -30,7 +30,7 @@ def write_cache(path, nouns):
     f.write(','.join(nouns))
 
 
-class Noun_Reader(object):
+class NLTK_Noun_Reader(object):
 
   def __init__(self, cache_dir):
     self.cache_dir = cache_dir
