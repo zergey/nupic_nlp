@@ -1,9 +1,10 @@
 import os
+import string
+
 import nltk
 from nltk.corpus import wordnet as wn
 from nltk.corpus.reader import NOUN
 from nltk.tag import pos_tag
-
 
 def plural(word):
   if word.endswith('y'):
@@ -16,83 +17,118 @@ def plural(word):
     return word + 's'
 
 
-def is_noun(word):
-  return len(wn.synsets(word, NOUN)) > 0
+class NLTK_Reader(object):
 
+  ERROR = 0
+  WARN = 1
+  INFO = 2
+  DEBUG = 3
 
-def filter_nouns(nouns):
-  return [ n for n in nouns 
-            if len(n) > 3 and len(wn.synsets(n, NOUN)) > 0 ]
-
-
-def write_cache(path, nouns):
-  with open(path, 'w') as f:
-    f.write(','.join(nouns))
-
-
-class NLTK_Noun_Reader(object):
-
-  def __init__(self, cache_dir):
+  def __init__(self, cache_dir='/tmp/nupic_nlp', verbosity=0):
+    # Create the cache directory if necessary.
+    if not os.path.exists(cache_dir):
+      os.mkdir(cache_dir)
     self.cache_dir = cache_dir
-
-  TEXTS = {
-    'text1': 'Moby Dick by Herman Melville 1851',
-    'text2': 'Sense and Sensibility by Jane Austen 1811',
-    'text3': 'The Book of Genesis',
-    'text4': 'Inaugural Address Corpus',
-    'text5': 'Chat Corpus',
-    'text6': 'Monty Python and the Holy Grail',
-    'text7': 'Wall Street Journal',
-    'text8': 'Personals Corpus',
-    'text9': 'The Man Who Was Thursday by G . K . Chesterton 1908'
-  }
+    self.texts = nltk.corpus.gutenberg.fileids()
+    self._verbosity = verbosity
 
 
+  def _log(self, lvl, msg):
+    if lvl <= self._verbosity:
+      print msg
 
-  def get_nouns_from_all_texts(self, max_terms):
-    """Retrieves all nouns from the NLTK corpus of texts."""
-    all_nouns = []
-    for i in range(1,9):
-        all_nouns += self._get_nouns_from_text('text' + str(i))
+
+  def _is_noun(self, word):
+    synonyms = len(wn.synsets(word, NOUN))
+    self._log(self.DEBUG, 'found %i noun synonyms for %s' % (synonyms, word))
+    return synonyms > 0
+
+
+  def _get_cache_file(self, cache_name):
+    return os.path.join(self.cache_dir, cache_name)
+
+
+  def _write_cache(self, cache_name, data):
+    cache_file = self._get_cache_file(cache_name)
+    self._log(self.INFO, 'writing cache to %s' % cache_file)
+    with open(cache_file, 'w') as f:
+      f.write(data)
+
+
+  def _cache_exists(self, cache_name):
+    cache_file = self._get_cache_file(cache_name)
+    return os.path.exists(cache_file)
+
+
+  def _read_cache(self, cache_name):
+    cache_file = self._get_cache_file(cache_name)
+    self._log(self.INFO, 'reading cache from %s' % cache_file)
+    return open(cache_file, 'r').read()
+
+
+  def _check_text_availability(self, text_name):
+    if text_name not in self.texts:
+      raise Exception('No corpus available named "%s". Available texts:\n\t%s' \
+        % (text_name, ' ,'.join(self.texts)))
+
+
+  def available_texts(self):
+    return nltk.corpus.gutenberg.fileids()
+
+
+  def get_words_from_text(self, text_name):
+    self._check_text_availability(text_name)
+    words_with_puncuation = nltk.corpus.gutenberg.words(text_name)
+    # Strip punctuation and make lower case.
+    words = [w.lower() 
+      for w in words_with_puncuation 
+      if w not in string.punctuation and len(w) > 3]
     # Remove duplicate nouns.
-    return list(set(all_nouns[:max_terms]))
+    words = list(set(words))
+    self._log(self.INFO, 'Found %i unique words from %s' % (len(words), text_name))
+    return words
 
 
-  def get_noun_pairs_from_all_texts(self, max_terms):
+  def get_nouns_from_text(self, text_name):
+    self._log(self.INFO, '\nGetting nouns from %s' % text_name)
+    cache_name = 'nouns_' + text_name
+    if self._cache_exists(cache_name):
+      nouns = self._read_cache(cache_name).split(',')
+    else:
+      words = self.get_words_from_text(text_name)
+      self._log(self.WARN, 'Noun identification beginning. This might take awhile...')
+      self._log(self.INFO, 'Tagging part of speech for %i words...' % len(words))
+      tagged_words = pos_tag(words)
+
+      self._log(self.INFO, 'Extracting all non-nouns based on POS tag...')
+      nouns = [ word for word, pos in tagged_words if len(word) > 2 and pos == 'NN']
+      self._log(self.INFO, '\t%i left' % len(nouns))
+
+      self._log(self.INFO, 'Extracting further non-nouns based on Wordnet synonyms...')
+      nouns = [ noun for noun in nouns if self._is_noun(noun) ]
+      self._log(self.INFO, '\t%i left' % len(nouns))
+
+      self._write_cache(cache_name, ','.join(nouns))
+
+    self._log(self.INFO, 'Found %i total nouns from %s' \
+      % (len(nouns), text_name))
+    return nouns
+
+
+  def get_noun_pairs_from_all_texts(self):
     """Retrieves all nouns from the NLTK corpus of texts."""
-    singulars = self.get_nouns_from_all_texts(max_terms)
+    singulars = []
+    for text in self.available_texts():
+      singulars += self.get_nouns_from_text(text)
+    singulars = list(set(singulars))
     return [(singular, plural(singular)) for singular in singulars]
 
 
 
-  def _get_nouns_from_text(self, text):
-    name = self.TEXTS[text]
-    word_cache = os.path.join(self.cache_dir, 'text')
-    nouns = self._find_nouns(text, word_cache)
-    return nouns
-
-
-
-  def _find_nouns(self, text_name, word_cache):
-    cache_dir = word_cache
-    cache_file = os.path.join(cache_dir, text_name);
-    
-    try:
-      os.mkdir(cache_dir)
-    except Exception:
-      pass
-
-    # print 'looking for %s cache' % text_name
-    if (os.path.exists(cache_file)):
-      nouns = open(cache_file, 'r').read().split(',')
-    else:
-      # print 'no cache for %s, reading book input from nltk' % text_name
-      _tmp = __import__('nltk.book', globals(), locals(), [text_name], -1)
-      txt = getattr(_tmp, text_name)
-      words = pos_tag(txt.vocab().keys())
-      nouns = [ word for word, pos in words 
-                if len(word) > 2 and pos == 'NN' and is_noun(word) ]
-      write_cache(cache_file, nouns)
-
-    return nouns
-
+  def get_sentences_from_text(self, text_name):
+    self._log(self.INFO, '\nGetting sentences from %s' % text_name)
+    self._check_text_availability(text_name)
+    sents = nltk.corpus.gutenberg.sents(text_name)
+    self._log(self.INFO, 'Found %i total sentences from %s' \
+      % (len(sents), text_name))
+    return sents
