@@ -157,29 +157,50 @@ The NLTK corpus contains somewhere around 6,300 nouns to process, which means ov
 
 ### Parts of Speech
 
-This script does not use CEPT. It parses the input text(s) specified inside the script and breaks each sentence into POS (Parts of Speech) tags. These tags are fed into NuPIC using a [category encoder](https://github.com/numenta/nupic/wiki/Encoders), and each next POS is predicted. Output is written to the console as well as an output file in the `output` directory.
+This script does not use CEPT. It parses the input text(s) specified inside the script and breaks each sentence into POS (Parts of Speech) tags. These tags are fed into NuPIC using a [category encoder](https://github.com/numenta/nupic/wiki/Encoders), and each next POS is predicted. Output is written to the console as well as an output file in the output directory specified by `--output-dir`.
 
 #### Usage
 
-    ./run_pos_experiment.py
+    Usage: run_pos_experiment.py [options]
+
+    Options:
+      -h, --help            show this help message and exit
+      -t INPUT_TEXT, --input-text=INPUT_TEXT
+                            The text to process. List available texts with the -l
+                            option.
+      -o OUTPUT_DIR, --output-dir=OUTPUT_DIR
+                            Directory to write result files.
+      -v, --verbose         Prints moar details.
+      -f, --full-tagging    Uses all available part of speech tagging. Otherwise,
+                            simplified NLTK tagging is used.
+      -i, --text-info       Prints a report on available texts.
+      -l, --list-texts      Prints a report on available texts.
+      -p, --pos-report      Prints all the parts of speech found within the
+                            specified text instead of processing the text.
 
 #### Example Output
 
-Here is some example output for Thor's Hammer (`06_how_thor_got_the_hammer`):
+Here is some example console output for Thor's Hammer:
 
-        The (          determiner              pronoun)
-        fly (              adverb                 noun)
-        bit (                noun          proper noun)
-         me (             pronoun                    .)
-         so (              adverb                 noun)
-       hard (              adverb          proper noun)
-       that (         preposition          proper noun)
-          I (             pronoun           determiner)
-        had (          past tense                 noun)
-         to (         the word to          preposition)
-       stop (                verb                 verb)
-    blowing (                noun               adverb)
-          . (                   .                    .)
+    ./run_pos_experiment.py -t 06_how_thor_got_the_hammer.txt
+
+Partial output:
+
+       WORD                  POS        PREDICTED POS
+    -------------------------------------------------
+        The           determiner              pronoun
+        fly               adverb                 noun
+        bit                 noun          proper noun
+         me              pronoun                    .
+         so               adverb                 noun
+       hard               adverb          proper noun
+       that          preposition          proper noun
+          I              pronoun           determiner
+        had           past tense                 noun
+         to          the word to          preposition
+       stop                 verb                 verb
+    blowing                 noun               adverb
+          .                    .                    .
 
 As you can see from this sample output, there are problems with NLTK's POS tagging. For example, `bit` is mis-categorized as a noun, when it is used as a past-tense verb. When the input is incorrect, it is harder for NuPIC to predict correctly. You might also note, however, that NuPIC does predict the end of the sentence correctly. 
 

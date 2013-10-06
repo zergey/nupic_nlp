@@ -89,8 +89,7 @@ class NLTK_Reader(object):
 
   def _check_text_availability(self, text_name):
     if text_name not in self.available_texts():
-      raise Exception('No corpus available named "%s". Available texts:\n\t%s' \
-        % (text_name, ' ,'.join(self.available_texts())))
+      raise Exception('No corpus available named "%s".' % text_name)
 
 
   def _get_reader_for(self, text_name):
@@ -164,10 +163,12 @@ class NLTK_Reader(object):
 
 
   def get_words(self, text_name):
+    self._check_text_availability(text_name)
     return self._get_reader_for(text_name).words(text_name)
 
 
   def get_sentences(self, text_name):
+    self._check_text_availability(text_name)
     return self._get_reader_for(text_name).sents(text_name)
 
 
@@ -179,14 +180,15 @@ class NLTK_Reader(object):
 
 
   def get_parts_of_speech(self, text_name, exclude_punctuation=False, simplify_tags=False):
-    self._log(self.WARN, 'Parts of speech extraction beginning. This might take awhile...')
+    self._log(self.INFO, 'Parts of speech extraction beginning. This might take awhile...')
     pos = set()
     for sent in self.get_tagged_sentences(text_name, 
                                           exclude_punctuation=exclude_punctuation, 
                                           simplify_tags=simplify_tags):
       words, parts = zip(*sent)
       pos.update(parts)
-    return pos
+    # String blanks (not sure why there are blanks, but there are sometimes).
+    return sorted([ p for p in pos if p is not '' ])
 
 
   def get_tag_descriptions(self):
@@ -196,5 +198,5 @@ class NLTK_Reader(object):
   def describe_tag(self, tag):
     if tag not in tag_descriptions.keys():
       # Return original tag if we don't know it
-      return (tag,)
+      return (tag,tag)
     return tag_descriptions[tag]
