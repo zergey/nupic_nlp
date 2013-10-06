@@ -157,18 +157,6 @@ The NLTK corpus contains somewhere around 6,300 nouns to process, which means ov
 
 ## Texts and Terms
 
-The NLTK texts this program has available are:
-
-- text1: Moby Dick by Herman Melville 1851
-- text2: Sense and Sensibility by Jane Austen 1811
-- text3: The Book of Genesis
-- text4: Inaugural Address Corpus
-- text5: Chat Corpus
-- text6: Monty Python and the Holy Grail
-- text7: Wall Street Journal
-- text8: Personals Corpus
-- text9: The Man Who Was Thursday by G . K . Chesterton 1908
-
 All the nouns processed from this corpus of text by the `run_plural_noun_experiment.py` experiment are extracted using NLTK's `pos_tag` function, looking for words tagged with `NN`. Resulting terms seem to be sometimes mis-categorized, so they are also passed through Wordnet and confirmed to be nouns before sent to CEPT for SDR conversion.
 
 ## Things to try:
