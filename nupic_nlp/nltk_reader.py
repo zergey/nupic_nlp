@@ -5,6 +5,7 @@ import nltk
 from nltk.corpus import wordnet as wn
 from nltk.corpus.reader import NOUN
 from nltk.tag import pos_tag
+from nltk.tokenize import word_tokenize, wordpunct_tokenize, sent_tokenize
 
 def plural(word):
   if word.endswith('y'):
@@ -15,6 +16,10 @@ def plural(word):
     return word[:-2] + 'en'
   else:
     return word + 's'
+
+
+def is_punctuation(word):
+  return word in string.punctuation or word == '--'
 
 
 class NLTK_Reader(object):
@@ -76,6 +81,14 @@ class NLTK_Reader(object):
     return nltk.corpus.gutenberg.fileids()
 
 
+  def text_report(self):
+    print '%30s %10s %10s' % ('text', 'words', 'sentences')
+    for txt in self.available_texts():
+      word_count = len(self.get_words(txt))
+      sent_count = len(self.get_sentences(txt))
+      print '%30s %10i %10i' % (txt, word_count, sent_count)
+
+
   def get_words_from_text(self, text_name):
     self._check_text_availability(text_name)
     words_with_puncuation = nltk.corpus.gutenberg.words(text_name)
@@ -124,11 +137,25 @@ class NLTK_Reader(object):
     return [(singular, plural(singular)) for singular in singulars]
 
 
+  def get_words(self, text_name):
+    return nltk.corpus.gutenberg.words(text_name)
 
-  def get_sentences_from_text(self, text_name):
-    self._log(self.INFO, '\nGetting sentences from %s' % text_name)
-    self._check_text_availability(text_name)
-    sents = nltk.corpus.gutenberg.sents(text_name)
-    self._log(self.INFO, 'Found %i total sentences from %s' \
-      % (len(sents), text_name))
-    return sents
+
+  def get_sentences(self, text_name):
+    return nltk.corpus.gutenberg.sents(text_name)
+
+
+  def get_tagged_sentences(self, text_name, exclude_punctuation=False):
+    for sent in self.get_sentences(text_name):
+      if exclude_punctuation:
+        sent = [ word for word in sent if not is_punctuation(word) ]
+      yield pos_tag(sent)
+
+
+  def get_parts_of_speech(self, text_name, exclude_punctuation=False):
+    self._log(self.WARN, 'Parts of speech extraction beginning. This might take awhile...')
+    pos = set()
+    for sent in self.get_tagged_sentences(text_name, exclude_punctuation):
+      words, parts = zip(*sent)
+      pos.update(parts)
+    return pos
