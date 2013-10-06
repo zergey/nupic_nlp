@@ -1,10 +1,10 @@
 # NuPIC NLP Experiments
 
-This repo contains my experiments with the using CEPT word SDRs as input into the NuPIC temporal pooler, bypassing the spacial pooler. 
+This repo contains my Natural Language Processing (NLP) experiments with [NuPIC](http://numenta.org/nupic.html). Some of them are using CEPT word SDRs as input into the NuPIC temporal pooler, bypassing the spacial pooler. Others are simply using the Python Natural Language Tool Kit (NLTK) and parts of speech tagging.
 
 ## Requirements
 
-You'll need an app ID and app key from [CEPT](https://cept.3scale.net/) for the usage of their API to get word SDRs and decode SDRs back into words. 
+For some experiments, you'll need an app ID and app key from [CEPT](https://cept.3scale.net/) for the usage of their API to get word SDRs and decode SDRs back into words. 
 
 You'll also need 35MB (or more depending on what individual experiments you run) of space to store the text corpus from the NLTK and SDRs from CEPT.
 
@@ -154,6 +154,36 @@ You can also specify the minimun sparsity threshold:
     python run_plural_noun_experiment.py --max-terms=10 --min-sparsity=1.0
    
 The NLTK corpus contains somewhere around 6,300 nouns to process, which means over 12K API calls to CEPT for SDRs. The results of each call are cached in the `./cache` directory, so subsequent runs will be much faster, but if you want to run it all in one go, I would suggest you run it overnight and specify `--max-terms=all`.
+
+### Parts of Speech
+
+This script does not use CEPT. It parses the input text(s) specified inside the script and breaks each sentence into POS (Parts of Speech) tags. These tags are fed into NuPIC using a [category encoder](https://github.com/numenta/nupic/wiki/Encoders), and each next POS is predicted. Output is written to the console as well as an output file in the `output` directory.
+
+#### Usage
+
+    ./run_pos_experiment.py
+
+#### Example Output
+
+Here is some example output for Thor's Hammer (`06_how_thor_got_the_hammer`):
+
+        The (          determiner              pronoun)
+        fly (              adverb                 noun)
+        bit (                noun          proper noun)
+         me (             pronoun                    .)
+         so (              adverb                 noun)
+       hard (              adverb          proper noun)
+       that (         preposition          proper noun)
+          I (             pronoun           determiner)
+        had (          past tense                 noun)
+         to (         the word to          preposition)
+       stop (                verb                 verb)
+    blowing (                noun               adverb)
+          . (                   .                    .)
+
+As you can see from this sample output, there are problems with NLTK's POS tagging. For example, `bit` is mis-categorized as a noun, when it is used as a past-tense verb. When the input is incorrect, it is harder for NuPIC to predict correctly. You might also note, however, that NuPIC does predict the end of the sentence correctly. 
+
+Grammar trees are difficult to predict, even for humans. At any point in the tree, the sentence could branch into multiple directions. Turning this experiment into an anomaly detection problem could provide more valuable results.
 
 ## Texts and Terms
 

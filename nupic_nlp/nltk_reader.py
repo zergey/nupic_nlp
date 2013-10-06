@@ -1,11 +1,17 @@
 import os
 import string
 
-import nltk
-from nltk.corpus import wordnet as wn
+from nltk.corpus import (gutenberg, 
+                        wordnet as wn)
 from nltk.corpus.reader import NOUN
+from nltk.corpus.reader import PlaintextCorpusReader
 from nltk.tag import pos_tag
-from nltk.tokenize import word_tokenize, wordpunct_tokenize, sent_tokenize
+from nltk.tag.simplify import simplify_wsj_tag
+from nltk.tokenize import (word_tokenize, 
+                          wordpunct_tokenize, 
+                          sent_tokenize)
+from tags import DESCRIPTIONS as tag_descriptions
+
 
 def plural(word):
   if word.endswith('y'):
@@ -22,6 +28,13 @@ def is_punctuation(word):
   return word in string.punctuation or word == '--'
 
 
+def pos_tag_sentence(sent, simplify_tags=False):
+  tagged = pos_tag(sent)
+  if simplify_tags:
+    tagged = [ (word, simplify_wsj_tag(tag)) for word, tag in tagged ]
+  return tagged
+
+
 class NLTK_Reader(object):
 
   ERROR = 0
@@ -29,13 +42,16 @@ class NLTK_Reader(object):
   INFO = 2
   DEBUG = 3
 
-  def __init__(self, cache_dir='/tmp/nupic_nlp', verbosity=0):
+  def __init__(self, input=None, cache_dir='/tmp/nupic_nlp', verbosity=0):
     # Create the cache directory if necessary.
     if not os.path.exists(cache_dir):
       os.mkdir(cache_dir)
     self.cache_dir = cache_dir
-    self.texts = nltk.corpus.gutenberg.fileids()
     self._verbosity = verbosity
+    if input is not None:
+      self.input_reader = PlaintextCorpusReader(input, '.*\.txt')
+    else:
+      self.input_reader = None
 
 
   def _log(self, lvl, msg):
@@ -72,26 +88,36 @@ class NLTK_Reader(object):
 
 
   def _check_text_availability(self, text_name):
-    if text_name not in self.texts:
+    if text_name not in self.available_texts():
       raise Exception('No corpus available named "%s". Available texts:\n\t%s' \
-        % (text_name, ' ,'.join(self.texts)))
+        % (text_name, ' ,'.join(self.available_texts())))
+
+
+  def _get_reader_for(self, text_name):
+    if text_name in gutenberg.fileids():
+      return gutenberg
+    else:
+      return self.input_reader
 
 
   def available_texts(self):
-    return nltk.corpus.gutenberg.fileids()
+    available = gutenberg.fileids()
+    if self.input_reader is not None:
+      available = available + self.input_reader.fileids()
+    return available
 
 
   def text_report(self):
-    print '%30s %10s %10s' % ('text', 'words', 'sentences')
+    print '%40s %10s %10s' % ('text', 'words', 'sentences')
     for txt in self.available_texts():
       word_count = len(self.get_words(txt))
       sent_count = len(self.get_sentences(txt))
-      print '%30s %10i %10i' % (txt, word_count, sent_count)
+      print '%40s %10i %10i' % (txt, word_count, sent_count)
 
 
   def get_words_from_text(self, text_name):
     self._check_text_availability(text_name)
-    words_with_puncuation = nltk.corpus.gutenberg.words(text_name)
+    words_with_puncuation = self.get_words(text_name)
     # Strip punctuation and make lower case.
     words = [w.lower() 
       for w in words_with_puncuation 
@@ -138,24 +164,37 @@ class NLTK_Reader(object):
 
 
   def get_words(self, text_name):
-    return nltk.corpus.gutenberg.words(text_name)
+    return self._get_reader_for(text_name).words(text_name)
 
 
   def get_sentences(self, text_name):
-    return nltk.corpus.gutenberg.sents(text_name)
+    return self._get_reader_for(text_name).sents(text_name)
 
 
-  def get_tagged_sentences(self, text_name, exclude_punctuation=False):
+  def get_tagged_sentences(self, text_name, exclude_punctuation=False, simplify_tags=False):
     for sent in self.get_sentences(text_name):
       if exclude_punctuation:
         sent = [ word for word in sent if not is_punctuation(word) ]
-      yield pos_tag(sent)
+      yield pos_tag_sentence(sent, simplify_tags=simplify_tags)
 
 
-  def get_parts_of_speech(self, text_name, exclude_punctuation=False):
+  def get_parts_of_speech(self, text_name, exclude_punctuation=False, simplify_tags=False):
     self._log(self.WARN, 'Parts of speech extraction beginning. This might take awhile...')
     pos = set()
-    for sent in self.get_tagged_sentences(text_name, exclude_punctuation):
+    for sent in self.get_tagged_sentences(text_name, 
+                                          exclude_punctuation=exclude_punctuation, 
+                                          simplify_tags=simplify_tags):
       words, parts = zip(*sent)
       pos.update(parts)
     return pos
+
+
+  def get_tag_descriptions(self):
+    return tag_descriptions
+
+
+  def describe_tag(self, tag):
+    if tag not in tag_descriptions.keys():
+      # Return original tag if we don't know it
+      return (tag,)
+    return tag_descriptions[tag]
